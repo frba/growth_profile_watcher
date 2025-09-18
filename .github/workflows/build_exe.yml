@@ -25,7 +25,7 @@ jobs:
         pip install -r requirements.txt # Install your project's dependencies
 
     - name: Package Application with PyInstaller
-      run: pyinstaller --onefile --noconsole main.py # Replace with your main file
+      run: pyinstaller --onefile --name watch_growth --icon growth_profile.ico main.py # Replace with your main file
 
     - name: Upload Executable as Artifact
       uses: actions/upload-artifact@v4
