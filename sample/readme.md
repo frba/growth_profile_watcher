@@ -10,7 +10,7 @@ The **Growth Profile Watcher** is a background tool designed to monitor the fold
 - Generates and outputs an XML file for the Momentum system when the criteria are satisfied.
 
 ## Requirements
-- **Windows OS**
+- **Windows 11**
 - Download the `.exe` file from the project's GitHub page.
 
 ## Installation
