@@ -6,9 +6,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  permissions:
-    contents: write
   # 1. Job to create the executable
   build_windows:
     runs-on: windows-latest # Use a Windows runner
