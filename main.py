@@ -29,7 +29,6 @@ if __name__ == "__main__":
         current_directory = os.path.dirname(sys.executable)
     else:
         # If the application is run as a script
-        # current_directory = os.getcwd()
         current_directory = pathlib.Path(__file__).parent.resolve()
         print(f"Current Directory: {current_directory}")
 
