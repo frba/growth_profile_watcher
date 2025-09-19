@@ -136,7 +136,10 @@ def write_mantis_file(workunit: ET.Element, **kwargs: Dict[str, Any]) -> ET.Elem
 def create(plate_data, plate_info):
     """
     Create an empty XML structure for Momentum.
+    :param plate_data: List of dictionaries containing plate growth data.
+    :param plate_info: List of dictionaries containing plate_type, plate_id, num_rows, and num_columns.
     :return: An ElementTree object representing the XML structure.
+
     """
     worklist = ET.Element("worklist")
 
@@ -213,8 +216,9 @@ def create(plate_data, plate_info):
     # Save the XML to a file
     # To print the XML string
     xml_str = ET.tostring(worklist, encoding='unicode', method='xml')
+
+    ### --- Path to save the XML file --- ###
     xml_path = f'{barcode}.xml'
-    # with open(os.path.join(MOMENTUM_ROOT_PATH, xml_path), "w") as f:
     with open(os.path.join(xml_path), "w") as f:
         f.write(xml_str)
     print(f"XML file created: {xml_path}")

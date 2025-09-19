@@ -106,7 +106,7 @@ def process_new_file(file_path):
 
         print(f"Successfully processed: {file_path}")
 
-        if time_of_growth:
+        if time_of_growth: # If a valid time is returned
             '''Create a worklist for Momentum XML'''
             print(f"\n--- Create new XML worklist ---")
             momentum_xml.create(plate_data, plate_info)
