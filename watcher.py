@@ -5,6 +5,8 @@ import csv
 import momentum_xml
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+sys.path.append('C:\\Program Files\\Thermo Scientific\\Momentum\\Devices\\')
+import Momentum as momentum
 
 # File extensions to process. Set to None or empty list to process all files.
 FILE_EXTENSIONS = ['.csv']
@@ -23,20 +25,21 @@ def verify_wells_growth(plate_info, plate_data):
     plate_id = plate_info[0]['plate_id']
     plate_type = plate_info[0]['plate_type']
 
-    # Calculate 50% of total wells
+    # Threshold will be defined by Momentum user interface
+    #TODO: Get variable from Momentum
+    # threshold = momentum.GetVar("Threshold")
     threshold = (num_rows * num_columns) / 2
-    print(f"Threshold for 50% of wells: {threshold}")
-    min_value = 1
 
-    for entry in plate_data:
-        print(entry)
-        wells_growth = entry['wells_growth']
-        count_above_one = sum(1 for value in wells_growth if float(value) > 1)
-        print(f"Count of wells with growth > 1 at time {entry['time']}: {count_above_one}")
+    # Check the last entry in plate_data
+    entry = plate_data[-1]  # Access the last entry
+    wells_growth = entry['wells_growth']
+    count_above_one = sum(1 for value in wells_growth if float(value) > 1)
+    print(f"Count of wells with growth > 1 at time {entry['time']}: {count_above_one}")
 
-        if count_above_one >= threshold:
-            print(f"Time: {entry['time']}, Count above 1: {count_above_one}, Threshold: {threshold} at {plate_id} ({plate_type})")
-            return entry['time']
+    if count_above_one >= threshold:
+        print(
+            f"Time: {entry['time']}, Count above 1: {count_above_one}, Threshold: {threshold} at {plate_id} ({plate_type})")
+        return entry['time']
 
     print("No time found where at least 50% of wells growth data is higher than 1.")
     return None
@@ -126,7 +129,7 @@ class NewFileHandler(FileSystemEventHandler):
     """
     def on_created(self, event):
         """
-        Called when a file or directory is created.
+        Called when a file is created.
         """
         if not event.is_directory: # Ensure it's a file, not a directory
             file_path = event.src_path
@@ -139,12 +142,27 @@ class NewFileHandler(FileSystemEventHandler):
             else:
                 print(f"Ignored file (unsupported extension): {file_path}")
 
+    def on_modified(self, event):
+        """
+        Called when a file is modified.
+        """
+        if not event.is_directory:  # Ensure it's a file, not a directory
+            file_path = event.src_path
+            file_extension = os.path.splitext(file_path)[1].lower()
+
+            # Check if the file extension is in our allowed list (if defined)
+            if FILE_EXTENSIONS is None or file_extension in [ext.lower() for ext in FILE_EXTENSIONS]:
+                print(f"Detected modified file: {file_path}")
+                process_new_file(file_path)
+            else:
+                print(f"Ignored modified file (unsupported extension): {file_path}")
+
 
 # --- Main Script Execution ---
 def start_watching(watched_folder):
     """
     Start watching the specified folder for new files.
-    :param watched_folder: The folder is where the .exe file is placed, and where new files will be created.
+    :param watched_folder: The watch folder is defined in the main function, and any new .csv file will be check.
     :return: None
     """
 
@@ -156,7 +174,7 @@ def start_watching(watched_folder):
 
     print(f"Watching folder: {watched_folder}")
     if FILE_EXTENSIONS:
-        print(f"Processing only files with extensions: {', '.join(FILE_EXTENSIONS)}")
+        print(f"Processing only new files with extensions: {', '.join(FILE_EXTENSIONS)}")
     else:
         print("Processing all new files.")
     print("Press Ctrl+C to stop the script.")

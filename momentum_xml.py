@@ -1,9 +1,6 @@
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
-from pathlib import PureWindowsPath
 import datetime, os
-import pandas as pd
-import numpy as np
 
 
 def initialize_workunit(worklist, name, append, auto_load, auto_verify_load, auto_unload, auto_verify_unload):
@@ -85,86 +82,36 @@ def process_plate(workunit: ET.Element, process: str, **kwargs: Dict[str, Any]) 
     return batch
 
 
-def mantis_dispense(workunit: ET.Element, **kwargs: Dict[str, Any]) -> ET.Element:
-    required_args = ['barcode', 'step', 'plate_type', 'dispense_list']
-    for arg in required_args:
-        if arg not in kwargs:
-            raise ValueError(f"Missing required argument '{arg}' for process 'Generic Mantis'")
-    usable_kwargs = ['barcode', 'step', 'plate_type', 'dispense_list', 'priority', 'iterations', 'minimumDelay']
-    kwargs = {key: kwargs[key] for key in kwargs if key in usable_kwargs}
-    batch = process_plate(workunit, 'Generic Mantis', **kwargs)
-    # Get only File Name from the path in dispense_list
-    create_variable(parent=batch,
-                    var_type='String',
-                    name='Mantis_Dispense_List',
-                    value=kwargs['dispense_list'].split('\\')[-1])
-    return batch
-
-
 def write_file(workunit: ET.Element, **kwargs: Dict[str, Any]) -> ET.Element:
-    required_args = ['barcode', 'step', 'FileName', 'FileContents']
-    for arg in required_args:
-        if arg not in kwargs:
-            raise ValueError(f"Missing required argument '{arg}' for process 'Generic write file'")
     usable_kwargs = ['barcode', 'step', 'FileName', 'FileContents', 'priority', 'iterations', 'minimumDelay']
     kwargs = {key: kwargs[key] for key in kwargs if key in usable_kwargs}
-    batch = process_plate(workunit, 'FileHandler2', **kwargs)
-    create_variable(parent=batch,
-                    var_type='String',
-                    name='FileContents',
-                    value=kwargs['FileContents'])
-    create_variable(parent=batch,
-                    var_type='String',
-                    name='FileName',
-                    value=kwargs['FileName'])
-    return batch
-
-
-def write_mantis_file(workunit: ET.Element, **kwargs: Dict[str, Any]) -> ET.Element:
-    required_args = ['barcode', 'step', 'Mantis_filename', 'Mantis_dispenselist']
-    for arg in required_args:
-        if arg not in kwargs:
-            raise ValueError(f"Missing required argument '{arg}' for process 'Generic write file'")
-    usable_kwargs = ['barcode', 'step', 'Mantis_filename', 'Mantis_dispenselist', 'priority', 'iterations', 'minimumDelay']
-    kwargs = {key: kwargs[key] for key in kwargs if key in usable_kwargs}
-    kwargs['FileName'] = kwargs.pop('Mantis_filename')
-    kwargs['FileContents'] = kwargs.pop('Mantis_dispenselist')
-    batch = write_file(workunit, **kwargs)
+    # Using 'Induction' as the process name
+    batch = process_plate(workunit, 'Induction', **kwargs)
     return batch
 
 
 def create(plate_data, plate_info):
     """
-    Create an empty XML structure for Momentum.
+    Create an XML structure for Momentum.
     :param plate_data: List of dictionaries containing plate growth data.
     :param plate_info: List of dictionaries containing plate_type, plate_id, num_rows, and num_columns.
     :return: An ElementTree object representing the XML structure.
 
     """
     worklist = ET.Element("worklist")
-
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    MANTIS_ROOT_PATH = PureWindowsPath('C:\\Mantis-0740\\Mantis-0740\\Mantis\\Data\\User\\DispenseList\\')
-    MOMENTUM_ROOT_PATH = PureWindowsPath('C:\\Users\\Thermo\\Desktop\\Worklist Launcher\\')
-    protocol = [write_mantis_file, mantis_dispense]
+    # MOMENTUM_ROOT_PATH = PureWindowsPath('C:\\Users\\Thermo\\Desktop\\Worklist Launcher\\')
+    MOMENTUM_ROOT_PATH = ('/Users/flavia/PycharmProjects/growth_profile_watcher/output/')
+    protocol = [write_file]
 
     # Get the integer from plate_info plare_type
     plate_type = plate_info[0]['plate_type']
     barcode = plate_info[0]['plate_id']
     plate_size = plate_info[0]['num_columns'] * plate_info[0]['num_rows']
-    print(f"Plate Type: {plate_type}, Plate Size: {plate_size}")
-
-    # Select the plate type for the Mantis dispense based on the plate type
-    if plate_size == 96:
-        mantis_plate_name = 'Eppendorf twin.tec PCR_96 on adapter'
-    elif plate_size == 384:
-        mantis_plate_name = 'Biorad 384 PCR on Adapter'
-    else:
-        mantis_plate_name = 'Mantis-Other'
 
     # Initialize the workunit
     workunit = initialize_workunit(worklist,
-                                   name='Mantis-Workunit',
+                                   name='Induction-Workunit',
                                    append='false',
                                    auto_load='true',
                                    auto_verify_load='true',
@@ -173,52 +120,22 @@ def create(plate_data, plate_info):
     # Create the batch
     batches = []
 
-    # Create the Mantis dispense list
-    plate_dimensions = (plate_info[0]['num_columns'], plate_info[0]['num_rows'])
-    tsv_section = f"1\n"
-    tsv_section += f"Water\t\t1 cP\nWell\t1\n"
-    reagent_values = np.full(plate_dimensions, 2).flatten()
-    numeric_values = np.asarray(reagent_values).reshape(*plate_dimensions)
-    numeric_values = pd.DataFrame(numeric_values.round(1))
-    numeric_tsv = pd.DataFrame(numeric_values).to_csv(index=False, header=False, sep='\t')
-    tsv_section += numeric_tsv
-
-    print(f"Creating Mantis dispense list")
-    print(tsv_section)
-
-    input_file_content = f"[ Version: 6 ]\n{mantis_plate_name}.pd.txt\n0\n1\n2\t0\t\t0\t\n"
-    input_file_content += "".join(tsv_section)
-    mantis_tsv_text = input_file_content.replace('\n', '\r\n')
-    operation_name_stem = f'{barcode}-{timestamp}'
-    mantis_filename = f'{operation_name_stem}.dl.txt'
-
-    print(mantis_filename)
-
     kwargs = {
         'barcode': barcode,
-        'plate_type': str(plate_size) + 'PCR',
-        # 'ODTC_protocol': str(ODTC_protocol),
-        'dispense_list': mantis_filename,
-        # 'transfer_file': str(ECHO_ROOT_PATH.joinpath(echo_filename)),
-        'Mantis_filename': str(MANTIS_ROOT_PATH.joinpath(mantis_filename)),
-        'Mantis_dispenselist': mantis_tsv_text,
-        # 'Echo_filename': str(ECHO_ROOT_PATH.joinpath(echo_filename)),
-        # 'Echo_worklist': echo_worklist.to_csv(index=False),
-        # 'Source_Plate_Type': source_plate_type
+        'plate_size': plate_size,
+        'plate_type': plate_type,
     }
 
     for step, process in enumerate(protocol, start=1):
         batches.append(process(workunit, step=str(step), **kwargs))
     tree = ET.ElementTree(worklist)
     ET.indent(tree, space=" ", level=0)  # For pretty printing
-    # tree.write('output.xml', encoding='utf-8', xml_declaration=True)
 
     # Save the XML to a file
-    # To print the XML string
     xml_str = ET.tostring(worklist, encoding='unicode', method='xml')
 
     ### --- Path to save the XML file --- ###
     xml_path = f'{barcode}.xml'
-    with open(os.path.join(xml_path), "w") as f:
+    with open(os.path.join(MOMENTUM_ROOT_PATH, xml_path), "w") as f:
         f.write(xml_str)
-    print(f"XML file created: {xml_path}")
+    # print(f"XML file created: {xml_path}")
