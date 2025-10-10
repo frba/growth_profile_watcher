@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List
 import datetime, os
+from pathlib import PureWindowsPath
 
 
 def initialize_workunit(worklist, name, append, auto_load, auto_verify_load, auto_unload, auto_verify_unload):
@@ -86,7 +87,7 @@ def write_file(workunit: ET.Element, **kwargs: Dict[str, Any]) -> ET.Element:
     usable_kwargs = ['barcode', 'step', 'FileName', 'FileContents', 'priority', 'iterations', 'minimumDelay']
     kwargs = {key: kwargs[key] for key in kwargs if key in usable_kwargs}
     # Using 'Induction' as the process name
-    batch = process_plate(workunit, 'Induction', **kwargs)
+    batch = process_plate(workunit, 'Test_GP_watcher', **kwargs)
     return batch
 
 
@@ -100,8 +101,8 @@ def create(plate_data, plate_info):
     """
     worklist = ET.Element("worklist")
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # MOMENTUM_ROOT_PATH = PureWindowsPath('C:\\Users\\Thermo\\Desktop\\Worklist Launcher\\')
-    MOMENTUM_ROOT_PATH = ('/Users/flavia/PycharmProjects/growth_profile_watcher/output/')
+    MOMENTUM_ROOT_PATH = PureWindowsPath('C:\\Users\\Thermo\\Desktop\\Worklist Launcher\\')
+    # MOMENTUM_ROOT_PATH = ('/Users/flavia/PycharmProjects/growth_profile_watcher/output/')
     protocol = [write_file]
 
     # Get the integer from plate_info plare_type
@@ -138,4 +139,3 @@ def create(plate_data, plate_info):
     xml_path = f'{barcode}.xml'
     with open(os.path.join(MOMENTUM_ROOT_PATH, xml_path), "w") as f:
         f.write(xml_str)
-    # print(f"XML file created: {xml_path}")

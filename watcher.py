@@ -5,49 +5,16 @@ import csv
 import momentum_xml
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-sys.path.append('C:\\Program Files\\Thermo Scientific\\Momentum\\Devices\\')
-import Momentum as momentum
+# sys.path.append('C:\\Program Files\\Thermo Scientific\\Momentum\\Devices\\')
+# import Momentum as momentum
 
 # File extensions to process. Set to None or empty list to process all files.
 FILE_EXTENSIONS = ['.csv']
 
 
-def verify_wells_growth(plate_info, plate_data):
+def extract_csv_plate_info_growth(csv_path):
     """
-    Verify if at least 50% of wells growth data is higher than 1 and return the time when it happened.
-    :param plate_info: Dictionary containing plate information such as plate_id, plate_type, num_rows, and num_columns.
-    :param plate_data: List of dictionaries containing time and wells growth data.
-    :return: Time when at least 50% of wells growth data is higher than 1, or None if not found.
-    """
-    # Extract plate information
-    num_columns = plate_info[0]['num_columns']
-    num_rows = plate_info[0]['num_rows']
-    plate_id = plate_info[0]['plate_id']
-    plate_type = plate_info[0]['plate_type']
-
-    # Threshold will be defined by Momentum user interface
-    #TODO: Get variable from Momentum
-    # threshold = momentum.GetVar("Threshold")
-    threshold = (num_rows * num_columns) / 2
-
-    # Check the last entry in plate_data
-    entry = plate_data[-1]  # Access the last entry
-    wells_growth = entry['wells_growth']
-    count_above_one = sum(1 for value in wells_growth if float(value) > 1)
-    print(f"Count of wells with growth > 1 at time {entry['time']}: {count_above_one}")
-
-    if count_above_one >= threshold:
-        print(
-            f"Time: {entry['time']}, Count above 1: {count_above_one}, Threshold: {threshold} at {plate_id} ({plate_type})")
-        return entry['time']
-
-    print("No time found where at least 50% of wells growth data is higher than 1.")
-    return None
-
-
-def process_csv_file(csv_path):
-    """
-    Process the CSV file to extract relevant information.
+    Extract plate information and growth data from a CSV file.
     :param csv_path: Path to the CSV file.
     """
 
@@ -90,22 +57,52 @@ def process_csv_file(csv_path):
         return plate_info, plate_data
 
 
-# --- File Processing Logic ---
-def process_new_file(file_path):
+def verify_growth_last_row(plate_info, plate_data):
     """
-    This function processes the newly created file.
-    Replace this with your actual Python script logic.
+    Verify if at least 50% of wells growth data is higher than 1 and return the time when it happened.
+    :param plate_info: Dictionary containing plate information such as plate_id, plate_type, num_rows, and num_columns.
+    :param plate_data: List of dictionaries containing time and wells growth data.
+    :return: Time when at least 50% of wells growth data is higher than 1, or None if not found.
+    """
+    # Extract plate information
+    num_columns = plate_info[0]['num_columns']
+    num_rows = plate_info[0]['num_rows']
+    plate_id = plate_info[0]['plate_id']
+    plate_type = plate_info[0]['plate_type']
 
-    Args:
-        file_path (str): The full path to the newly created file.
+    # Threshold will be defined by Momentum user interface
+    #TODO: Get variable from Momentum
+    # threshold = momentum.GetVar("Threshold")
+    threshold = (num_rows * num_columns) / 2
+
+    # Check the last entry in plate_data
+    entry = plate_data[-1]  # Access the last entry
+    wells_growth = entry['wells_growth']
+    count_above_one = sum(1 for value in wells_growth if float(value) > 1)
+    print(f"Count of wells with growth > 1 at time {entry['time']}: {count_above_one}")
+
+    if count_above_one >= threshold:
+        print(
+            f"Time: {entry['time']}, Count above 1: {count_above_one}, Threshold: {threshold} at {plate_id} ({plate_type})")
+        return entry['time']
+
+    print("No time found where at least 50% of wells growth data is higher than 1.")
+    return None
+
+
+# --- File Processing Logic ---
+def process_csv_file(file_path):
+    """
+    Process the newly modified file.
+    :param file_path: Path to the modified file.
     """
     print(f"\n--- Processing new file: {file_path} ---")
     try:
         # Process the CSV file
-        plate_info, plate_data = process_csv_file(file_path)
+        plate_info, plate_data = extract_csv_plate_info_growth(file_path)
 
         # Verify wells growth
-        time_of_growth = verify_wells_growth(plate_info, plate_data)
+        time_of_growth = verify_growth_last_row(plate_info, plate_data)
 
         print(f"Successfully processed: {file_path}")
 
@@ -127,61 +124,46 @@ class NewFileHandler(FileSystemEventHandler):
     """
     Custom event handler for watchdog to detect file creation events.
     """
+    def __init__(self, watched_file):
+        super().__init__()
+        self.watched_file = watched_file
+
     def on_created(self, event):
         """
         Called when a file is created.
         """
-        if not event.is_directory: # Ensure it's a file, not a directory
-            file_path = event.src_path
-            file_extension = os.path.splitext(file_path)[1].lower()
+        watched_file_normalized = os.path.abspath(self.watched_file)
+        event_file_normalized = os.path.abspath(event.src_path)
 
-            # Check if the file extension is in our allowed list (if defined)
+        if not event.is_directory and event_file_normalized == watched_file_normalized:  # Ensure it's the specific file
+            file_extension = os.path.splitext(self.watched_file)[1].lower()
             if FILE_EXTENSIONS is None or file_extension in [ext.lower() for ext in FILE_EXTENSIONS]:
-                print(f"Detected new file: {file_path}")
-                process_new_file(file_path)
-            else:
-                print(f"Ignored file (unsupported extension): {file_path}")
+                process_csv_file(event.src_path)
 
     def on_modified(self, event):
         """
         Called when a file is modified.
         """
-        if not event.is_directory:  # Ensure it's a file, not a directory
-            file_path = event.src_path
-            file_extension = os.path.splitext(file_path)[1].lower()
+        watched_file_normalized = os.path.abspath(self.watched_file)
+        event_file_normalized = os.path.abspath(event.src_path)
 
-            # Check if the file extension is in our allowed list (if defined)
-            if FILE_EXTENSIONS is None or file_extension in [ext.lower() for ext in FILE_EXTENSIONS]:
-                print(f"Detected modified file: {file_path}")
-                process_new_file(file_path)
-            else:
-                print(f"Ignored modified file (unsupported extension): {file_path}")
+        if not event.is_directory and event_file_normalized == watched_file_normalized:
+            process_csv_file(event.src_path)
 
 
 # --- Main Script Execution ---
-def start_watching(watched_folder):
+def start_watching(watched_file):
     """
     Start watching the specified folder for new files.
-    :param watched_folder: The watch folder is defined in the main function, and any new .csv file will be check.
+    :param watched_file: The watch file is pass by the user in the main function.
     :return: None
     """
+    # Extract the parent directory of the file
+    parent_dir = os.path.dirname(watched_file)
 
-    # Validate the watched folder
-    if not os.path.isdir(watched_folder):
-        print(f"Error: The specified WATCHED_FOLDER '{watched_folder}' does not exist or is not a directory.")
-        print("Please create the folder or update the WATCHED_FOLDER variable in the script.")
-        sys.exit(1)
-
-    print(f"Watching folder: {watched_folder}")
-    if FILE_EXTENSIONS:
-        print(f"Processing only new files with extensions: {', '.join(FILE_EXTENSIONS)}")
-    else:
-        print("Processing all new files.")
-    print("Press Ctrl+C to stop the script.")
-
-    event_handler = NewFileHandler()
+    event_handler = NewFileHandler(watched_file)
     observer = Observer()
-    observer.schedule(event_handler, watched_folder, recursive=False) # Set recursive=True to watch subdirectories
+    observer.schedule(event_handler, parent_dir, recursive=False) # Set recursive=True to watch subdirectories
 
     observer.start()
     try:
@@ -189,5 +171,5 @@ def start_watching(watched_folder):
             time.sleep(1) # Keep the main thread alive
     except KeyboardInterrupt:
         observer.stop()
-        print("\nFolder watcher stopped.")
+        print(f"\nStopped watching file: {watched_file}")
     observer.join()
