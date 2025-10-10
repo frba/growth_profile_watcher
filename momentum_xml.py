@@ -101,7 +101,7 @@ def create(plate_data, plate_info):
     """
     worklist = ET.Element("worklist")
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    MOMENTUM_ROOT_PATH = PureWindowsPath('C:\\Users\\Thermo\\Desktop\\Worklist Launcher\\')
+    MOMENTUM_ROOT_PATH = PureWindowsPath('C:\\WorklistWatcher\\')
     # MOMENTUM_ROOT_PATH = ('/Users/flavia/PycharmProjects/growth_profile_watcher/output/')
     protocol = [write_file]
 
