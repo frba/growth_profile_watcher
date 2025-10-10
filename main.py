@@ -1,11 +1,8 @@
-
-
 import os
 import sys
 import watcher
 import argparse
 from pathlib import Path
-from pathlib import PureWindowsPath
 
 
 def main():
